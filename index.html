@@ -475,7 +475,7 @@
           </button>
           <button class="tool-action primary" id="svgBtn">
             <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 15.01l1.41-1.42L11 15.17l3.59-3.58L16 13l-5 5-3-2.99z"/></svg>
-            Import SVG
+            Import Image
           </button>
         </div>
 
@@ -632,7 +632,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { convertCanvasToSTL, NotEnclosedError, detectImageColors } from './js/converter.js';
-import { renderSVGToCanvas, MAX_SVG_SIZE } from './js/svg-importer.js';
+import {
+  renderImageFileToCanvas,
+  isSVGFile,
+  isAcceptedImageFile,
+  MAX_SVG_SIZE,
+  MAX_IMAGE_SIZE,
+  ACCEPTED_IMAGE_EXTS,
+  ACCEPTED_IMAGE_ACCEPT_ATTR,
+} from './js/svg-importer.js';
 
 // ========== OpenCV.js Loading ==========
 let cvReady = false;
@@ -943,10 +951,10 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Import SVG (web only) ---
-async function handleSVGContent(svgText) {
+// --- Import Image (web only) ---
+async function importImageFile(file) {
   try {
-    await renderSVGToCanvas(canvas, svgText);
+    await renderImageFileToCanvas(canvas, file);
     pushUndo();
     if (cvReady) {
       detectedColors = detectImageColors(canvas, 5);
@@ -964,33 +972,31 @@ async function handleSVGContent(svgText) {
   }
 }
 
-const svgFileInput = document.createElement('input');
-svgFileInput.type = 'file';
-svgFileInput.accept = '.svg';
-svgFileInput.style.display = 'none';
-document.body.appendChild(svgFileInput);
+const imgFileInput = document.createElement('input');
+imgFileInput.type = 'file';
+imgFileInput.accept = ACCEPTED_IMAGE_ACCEPT_ATTR;
+imgFileInput.style.display = 'none';
+document.body.appendChild(imgFileInput);
 
 document.getElementById('svgBtn').addEventListener('click', () => {
-  svgFileInput.click();
+  imgFileInput.click();
 });
 
-svgFileInput.addEventListener('change', (e) => {
+imgFileInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const isSVG = file.name.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml';
-  if (!isSVG) {
-    alert('Unsupported file format. Please select an SVG file (.svg).\n\nTip: You can convert images to SVG using Figma, Illustrator, or online tools.');
+  if (!isAcceptedImageFile(file)) {
+    alert(`Unsupported file format. Please select an image file (${ACCEPTED_IMAGE_EXTS.join(', ')}).`);
     e.target.value = '';
     return;
   }
-  if (file.size > MAX_SVG_SIZE) {
-    alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please select an SVG file smaller than ${MAX_SVG_SIZE / 1024 / 1024}MB.`);
+  const limit = isSVGFile(file) ? MAX_SVG_SIZE : MAX_IMAGE_SIZE;
+  if (file.size > limit) {
+    alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please select an image smaller than ${limit / 1024 / 1024}MB.`);
     e.target.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = (ev) => handleSVGContent(ev.target.result);
-  reader.readAsText(file);
+  importImageFile(file);
   e.target.value = '';
 });
 
