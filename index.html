@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Draw2Print — Draw &amp; Convert to 3D</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #F5F0FF;
+    --container: #FFFFFF;
+    --border: #E8E0F0;
+    --accent: #FF6B6B;
+    --accent-dark: #E55A5A;
+    --accent2: #4ECDC4;
+    --accent3: #FFD93D;
+    --accent4: #6C5CE7;
+    --text-pri: #2D1B69;
+    --text-sec: #6B5B8A;
+    --text-mut: #A99BBF;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --nav-h: 48px;
+    --tab-h: 54px;
+    --radius: 16px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text-pri);
+    height: 100vh; height: 100dvh;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── App Shell ─────────────────────────────────────── */
+  .app {
+    display: flex; flex-direction: column;
+    height: 100vh; height: 100dvh;
+    background: linear-gradient(180deg, #E8DFFF 0%, #F5F0FF 30%, #FFF5F5 100%);
+  }
+
+  /* ── Nav Bar ───────────────────────────────────────── */
+  .nav-bar {
+    background: linear-gradient(135deg, #6C5CE7 0%, #A55EEA 50%, #FF6B6B 100%);
+    padding-top: var(--safe-top);
+    flex-shrink: 0;
+    box-shadow: 0 2px 12px rgba(108,92,231,0.3);
+  }
+  .nav-bar-inner {
+    height: var(--nav-h);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    gap: 8px;
+  }
+  .nav-logo {
+    width: 28px; height: 28px; flex-shrink: 0;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+  }
+  .nav-title {
+    font-size: 19px; font-weight: 800; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    letter-spacing: -0.3px;
+  }
+  .nav-title .nav-accent { color: #FFD93D; }
+
+  /* ── Tab Panels ────────────────────────────────────── */
+  .tab-content {
+    flex: 1; min-height: 0;
+    position: relative;
+  }
+  .tab-panel {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-panel.active { display: flex; }
+
+  /* ── Tab Bar ───────────────────────────────────────── */
+  .tab-bar {
+    background: var(--container);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    flex-shrink: 0;
+    box-shadow: 0 -2px 10px rgba(108,92,231,0.08);
+  }
+  .tab-bar-btn {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 3px; padding: 8px 0 5px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-mut);
+    transition: color 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .tab-bar-btn.active { color: var(--accent4); }
+  .tab-bar-btn:active { transform: scale(0.9); }
+  .tab-bar-btn.active::before {
+    content: ''; position: absolute; top: 0; left: 30%; right: 30%;
+    height: 3px; background: linear-gradient(90deg, var(--accent4), var(--accent));
+    border-radius: 0 0 3px 3px;
+  }
+  .tab-bar-btn svg { width: 26px; height: 26px; fill: currentColor; }
+  .tab-bar-btn span { font-size: 11px; font-weight: 600; }
+
+  /* ── DRAW TAB ──────────────────────────────────────── */
+  #drawPanel { padding: 12px 16px 16px; gap: 12px; }
+
+  /* Hero tip banner */
+  .hero-tip {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #FFF3E0 0%, #FFF0F5 50%, #F0E6FF 100%);
+    border: 2px solid #FFD93D;
+    border-radius: var(--radius); padding: 12px 14px;
+    position: relative; overflow: hidden;
+  }
+  .hero-tip::before {
+    content: ''; position: absolute; top: -15px; right: -15px;
+    width: 60px; height: 60px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,107,107,0.15) 0%, transparent 70%);
+  }
+  .hero-tip-icon {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: linear-gradient(135deg, #FFD93D 0%, #FF6B6B 100%);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(255,107,107,0.3);
+  }
+  .hero-tip-icon svg { width: 22px; height: 22px; fill: #fff; }
+  .hero-tip-text { font-size: 14px; color: var(--text-sec); line-height: 1.4; font-weight: 500; }
+  .hero-tip-text strong { color: var(--accent); font-weight: 700; }
+  .hero-tip-close {
+    position: absolute; top: 6px; right: 8px;
+    background: none; border: none; color: var(--text-mut);
+    font-size: 18px; cursor: pointer; padding: 4px;
+    line-height: 1;
+  }
+
+  /* Segmented Control */
+  .segmented {
+    display: flex; background: #EDE5F7; border-radius: 14px;
+    padding: 3px; gap: 3px;
+  }
+  .segmented button {
+    flex: 1; padding: 10px 0; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    background: transparent; color: var(--text-sec);
+    transition: all 0.25s;
+  }
+  .segmented button.active {
+    background: linear-gradient(135deg, var(--accent4) 0%, #A55EEA 100%);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(108,92,231,0.35);
+  }
+
+  /* Color Palette */
+  .palette-row {
+    display: flex; justify-content: center; gap: 14px;
+  }
+  .palette-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: none; border: none; cursor: pointer; padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s;
+  }
+  .palette-item:active { transform: scale(0.88); }
+  .palette-circle {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 3px solid transparent;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+  }
+  .palette-item.active .palette-circle {
+    border-color: var(--accent4);
+    box-shadow: 0 0 0 3px rgba(108,92,231,0.3), 0 3px 8px rgba(0,0,0,0.12);
+    transform: scale(1.1);
+  }
+  .palette-label { font-size: 11px; font-weight: 600; color: var(--text-sec); }
+
+  /* Brush Size */
+  .brush-size-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 4px;
+  }
+  .brush-size-row label { font-size: 14px; font-weight: 600; color: var(--text-sec); white-space: nowrap; }
+  .brush-size-row input[type="range"] { flex: 1; accent-color: var(--accent4); height: 44px; }
+  .brush-size-row .size-val {
+    font-size: 15px; font-weight: 700; color: var(--accent4);
+    min-width: 20px; text-align: right;
+  }
+
+  /* Canvas */
+  .canvas-wrap {
+    flex: 1; min-height: 0; display: flex;
+    align-items: center; justify-content: center;
+    padding: 4px;
+  }
+  canvas#drawCanvas {
+    background: #fff; border-radius: var(--radius);
+    cursor: crosshair; display: block;
+    touch-action: none;
+    max-width: 100%; max-height: 100%;
+    box-shadow: 0 4px 20px rgba(108,92,231,0.15), 0 0 0 3px #EDE5F7;
+  }
+
+  /* Action Buttons */
+  .action-row {
+    display: flex; gap: 10px;
+  }
+  .action-btn {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 12px 0; border-radius: 14px; border: none;
+    font-size: 15px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s;
+    min-height: 48px;
+  }
+  .action-btn:active { transform: scale(0.96); }
+  .action-btn.outline {
+    background: var(--container); color: var(--text-pri);
+    border: 2px solid var(--border);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  }
+  .action-btn.outline:active { background: #F0E8FF; }
+  .action-btn.primary {
+    background: linear-gradient(135deg, var(--accent2) 0%, #45B7AA 100%);
+    color: #fff; border: none;
+    box-shadow: 0 3px 12px rgba(78,205,196,0.35);
+  }
+  .action-btn.primary:active { box-shadow: none; }
+  .action-btn svg { width: 18px; height: 18px; fill: currentColor; }
+  input[type="file"] { display: none; }
+
+  /* ── SETTINGS TAB ──────────────────────────────────── */
+  #settingsPanel { padding: 0 0 0; }
+
+  .settings-scroll {
+    padding: 16px 16px 100px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .section-header {
+    font-size: 13px; font-weight: 800; color: var(--accent4);
+    text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 0 4px; margin-bottom: -8px;
+  }
+
+  .card {
+    background: var(--container); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow: hidden;
+    box-shadow: 0 2px 8px rgba(108,92,231,0.06);
+  }
+  .card-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; min-height: 52px;
+  }
+  .card-row + .card-row { border-top: 1px solid var(--border); }
+
+  .card-row .color-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+  .card-row .row-label {
+    font-size: 15px; font-weight: 600; color: var(--text-pri);
+    min-width: 60px; flex-shrink: 0;
+  }
+  .card-row input[type="range"] {
+    flex: 1; accent-color: var(--accent4); min-width: 0;
+    height: 44px;
+  }
+  .card-row .row-val {
+    font-size: 14px; font-weight: 700; color: var(--accent4);
+    min-width: 48px; text-align: right; flex-shrink: 0;
+  }
+
+  /* Toggle Switch */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; min-height: 52px;
+  }
+  .toggle-row .row-label { font-size: 15px; font-weight: 600; color: var(--text-pri); }
+  .toggle-switch {
+    position: relative; width: 51px; height: 31px; flex-shrink: 0;
+  }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0; cursor: pointer;
+    background: #D5C8E8; border-radius: 31px;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    width: 27px; height: 27px; left: 2px; bottom: 2px;
+    background: #fff; border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .toggle-switch input:checked + .toggle-slider { background: var(--accent2); }
+  .toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  /* Sticky Convert Button */
+  .sticky-convert {
+    position: sticky; bottom: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    padding-bottom: calc(12px);
+    background: linear-gradient(to top, var(--bg) 70%, transparent);
+  }
+  #convertBtn {
+    width: 100%; padding: 16px; border: none; border-radius: var(--radius);
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FFD93D 100%);
+    color: #fff;
+    font-size: 18px; font-weight: 800; cursor: pointer;
+    transition: all 0.2s;
+    min-height: 54px;
+    box-shadow: 0 4px 16px rgba(255,107,107,0.35);
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  #convertBtn:active { box-shadow: 0 2px 6px rgba(255,107,107,0.2); transform: scale(0.97); }
+  #convertBtn:disabled { background: #D5C8E8; cursor: wait; opacity: 0.7; box-shadow: none; color: #fff; text-shadow: none; }
+  #statusMsg {
+    font-size: 13px; color: var(--text-sec); text-align: center;
+    margin-top: 6px; min-height: 1.2em; font-weight: 500;
+  }
+  #statusMsg.error { color: var(--accent); }
+  #statusMsg.warning {
+    color: #E67E22; background: #FFF8E1;
+    border: 1px solid #FFD93D; border-radius: 12px;
+    padding: 8px 12px; line-height: 1.4;
+  }
+
+  /* ── PREVIEW TAB ───────────────────────────────────── */
+  #previewPanel { padding: 0; }
+
+  .preview-viewer {
+    flex: 1; min-height: 0; position: relative;
+  }
+  #preview3d {
+    width: 100%; height: 100%; background: linear-gradient(180deg, #2D1B69 0%, #1A1035 100%);
+  }
+  .preview-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 16px; color: var(--text-mut);
+    background: linear-gradient(180deg, #F5F0FF 0%, #FFF0F5 100%);
+  }
+  .preview-empty svg { width: 72px; height: 72px; fill: var(--accent4); opacity: 0.3; }
+  .preview-empty p { font-size: 16px; font-weight: 600; text-align: center; line-height: 1.5; color: var(--text-sec); }
+  .preview-empty .hint-steps {
+    display: flex; gap: 20px; margin-top: 8px;
+  }
+  .preview-empty .hint-step {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--text-sec);
+  }
+  .preview-empty .hint-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff;
+  }
+  .preview-empty .hint-step:nth-child(1) .hint-num { background: linear-gradient(135deg, #FF6B6B, #FF8E53); }
+  .preview-empty .hint-step:nth-child(2) .hint-num { background: linear-gradient(135deg, #FFD93D, #FF8E53); }
+  .preview-empty .hint-step:nth-child(3) .hint-num { background: linear-gradient(135deg, #4ECDC4, #6C5CE7); }
+
+  .preview-status-chip {
+    position: absolute; top: 12px; right: 12px;
+    background: rgba(78,205,196,0.2); color: var(--accent2);
+    font-size: 12px; font-weight: 700; padding: 5px 14px;
+    border-radius: 20px; display: none;
+    backdrop-filter: blur(8px);
+  }
+  .preview-status-chip.visible { display: block; }
+
+  .preview-actions {
+    display: flex; gap: 10px; padding: 12px 16px;
+    background: var(--container);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  /* Settings footer */
+  .settings-footer {
+    text-align: center; padding: 20px 16px 8px;
+    font-size: 12px; color: var(--text-mut); font-weight: 500;
+  }
+  .settings-footer .app-ver {
+    background: linear-gradient(135deg, var(--accent4), var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800; font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .preview-actions .action-btn { flex: 1; }
+
+  /* ── Onboarding Overlay ───────────────────────────── */
+  .onboarding-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: linear-gradient(180deg, #6C5CE7 0%, #A55EEA 40%, #FF6B6B 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top, 20px) 24px env(safe-area-inset-bottom, 20px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .onboarding-overlay.hiding {
+    opacity: 0; transform: scale(1.05);
+    pointer-events: none;
+  }
+  .onboarding-slides {
+    flex: 1; width: 100%; max-width: 400px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
+  }
+  .onboarding-slide {
+    display: none; flex-direction: column;
+    align-items: center; gap: 16px; width: 100%;
+    animation: obFadeIn 0.4s ease;
+  }
+  .onboarding-slide.active { display: flex; }
+  @keyframes obFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ob-image-row {
+    display: flex; gap: 12px; align-items: center;
+    justify-content: center; width: 100%;
+  }
+  .ob-image-wrap {
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    background: #fff;
+  }
+  .ob-image-wrap img {
+    display: block; width: 100%; height: auto;
+  }
+  .ob-arrow-between {
+    font-size: 32px; color: #FFD93D; flex-shrink: 0;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  }
+  .ob-title {
+    font-size: 28px; font-weight: 800; color: #fff;
+    text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    letter-spacing: -0.5px;
+  }
+  .ob-subtitle {
+    font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.85);
+    text-align: center; line-height: 1.5; max-width: 320px;
+  }
+  .ob-single-img {
+    width: 70%; max-width: 260px;
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    background: #fff;
+  }
+  .ob-single-img img { display: block; width: 100%; height: auto; }
+  .ob-dots {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .ob-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.35);
+    transition: all 0.3s;
+  }
+  .ob-dot.active {
+    background: #FFD93D; width: 24px; border-radius: 4px;
+  }
+  .ob-btn {
+    width: 100%; max-width: 400px;
+    padding: 16px; border: none; border-radius: 16px;
+    font-size: 18px; font-weight: 800; cursor: pointer;
+    transition: all 0.2s; min-height: 54px;
+    margin-top: 12px;
+  }
+  .ob-btn:active { transform: scale(0.97); }
+  .ob-btn-next {
+    background: #FFD93D; color: #2D1B69;
+    box-shadow: 0 4px 16px rgba(255,217,61,0.4);
+  }
+  .ob-btn-start {
+    background: #fff; color: #6C5CE7;
+    box-shadow: 0 4px 16px rgba(255,255,255,0.3);
+  }
+  .ob-skip {
+    background: none; border: none; color: rgba(255,255,255,0.6);
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    padding: 12px; margin-top: 4px;
+  }
+
+  /* ── Desktop: keep it centered ─────────────────────── */
+  @media (min-width: 500px) {
+    .app { max-width: 430px; margin: 0 auto; box-shadow: 0 0 40px rgba(108,92,231,0.1); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Onboarding Overlay (first launch only) -->
+<div class="onboarding-overlay" id="onboarding">
+  <div class="onboarding-slides">
+    <!-- Slide 1: Draw -->
+    <div class="onboarding-slide active" data-slide="0">
+      <div class="ob-single-img">
+        <img src="img/onboarding_sketch.png" alt="Draw a sketch">
+      </div>
+      <div class="ob-title">Draw anything</div>
+      <div class="ob-subtitle">Use your finger to sketch any shape you can imagine</div>
+    </div>
+
+    <!-- Slide 2: From sketch to real object -->
+    <div class="onboarding-slide" data-slide="1">
+      <div class="ob-image-row">
+        <div class="ob-image-wrap" style="width:42%;">
+          <img src="img/onboarding_sketch.png" alt="Sketch">
+        </div>
+        <div class="ob-arrow-between">→</div>
+        <div class="ob-image-wrap" style="width:42%;">
+          <img src="img/3d_printed.jpg" alt="3D printed">
+        </div>
+      </div>
+      <div class="ob-title">From screen to real</div>
+      <div class="ob-subtitle">Your drawing becomes a 3D printable object you can hold in your hand</div>
+    </div>
+
+    <!-- Slide 3: Get started -->
+    <div class="onboarding-slide" data-slide="2">
+      <div class="ob-single-img">
+        <img src="img/3d_printed.jpg" alt="3D printed result">
+      </div>
+      <div class="ob-title">Ready to create?</div>
+      <div class="ob-subtitle">Draw, convert to 3D, and export STL files for your 3D printer. No experience needed!</div>
+    </div>
+  </div>
+
+  <div class="ob-dots">
+    <div class="ob-dot active" data-dot="0"></div>
+    <div class="ob-dot" data-dot="1"></div>
+    <div class="ob-dot" data-dot="2"></div>
+  </div>
+
+  <button class="ob-btn ob-btn-next" id="obNext">Next</button>
+  <button class="ob-skip" id="obSkip">Skip</button>
+</div>
+
+<div class="app">
+  <!-- Nav Bar -->
+  <div class="nav-bar">
+    <div class="nav-bar-inner">
+      <svg class="nav-logo" viewBox="0 0 100 100" id="navLogo">
+        <defs>
+          <linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FFD93D"/><stop offset="100%" stop-color="#FF6B6B"/></linearGradient>
+          <linearGradient id="ng2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4ECDC4"/><stop offset="100%" stop-color="#6C5CE7"/></linearGradient>
+        </defs>
+        <polygon points="50,10 61,38 91,38 67,56 76,85 50,68 24,85 33,56 9,38 39,38" fill="none" stroke="url(#ng)" stroke-width="5" stroke-linejoin="round"/>
+        <polygon points="70,25 77,45 95,45 80,57 86,77 70,66 54,77 60,57 45,45 63,45" fill="url(#ng2)" opacity="0.9"/>
+      </svg>
+      <div class="nav-title" id="navTitle"><span class="nav-accent">Draw</span>2Print</div>
+    </div>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+
+    <!-- ═══ DRAW TAB ═══ -->
+    <div class="tab-panel active" id="drawPanel">
+      <!-- Hero Tip -->
+      <div class="hero-tip" id="heroTip">
+        <div class="hero-tip-icon">
+          <svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34a.996.996 0 00-1.41 0L9 12.25 11.75 15l8.96-8.96a.996.996 0 000-1.41z"/></svg>
+        </div>
+        <div class="hero-tip-text"><strong>Draw any shape</strong> with your finger, then convert it to a 3D printable STL file</div>
+        <button class="hero-tip-close" id="heroTipClose">&times;</button>
+      </div>
+
+      <!-- Segmented Control -->
+      <div class="segmented">
+        <button id="brushBtn" class="active">Brush</button>
+        <button id="eraserBtn">Eraser</button>
+      </div>
+
+      <!-- Color Palette -->
+      <div class="palette-row">
+        <button class="palette-item active" data-color="#000000">
+          <div class="palette-circle" style="background:#000000;"></div>
+          <span class="palette-label">Black</span>
+        </button>
+        <button class="palette-item" data-color="#E94560">
+          <div class="palette-circle" style="background:#E94560;"></div>
+          <span class="palette-label">Red</span>
+        </button>
+        <button class="palette-item" data-color="#3498DB">
+          <div class="palette-circle" style="background:#3498DB;"></div>
+          <span class="palette-label">Blue</span>
+        </button>
+        <button class="palette-item" data-color="#2ECC71">
+          <div class="palette-circle" style="background:#2ECC71;"></div>
+          <span class="palette-label">Green</span>
+        </button>
+        <button class="palette-item" data-color="#F39C12">
+          <div class="palette-circle" style="background:#F39C12;"></div>
+          <span class="palette-label">Orange</span>
+        </button>
+      </div>
+
+      <!-- Brush Size -->
+      <div class="brush-size-row">
+        <label>Brush Size</label>
+        <input type="range" id="brushSize" min="10" max="30" value="10">
+        <span class="size-val" id="brushSizeVal">10</span>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-wrap">
+        <canvas id="drawCanvas" width="800" height="600"></canvas>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-row">
+        <button class="action-btn outline" id="undoBtn">
+          <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05 1.04-6.83 2.73L3 8v8h8l-2.81-2.81C9.83 11.83 11.06 11 12.5 11c2.33 0 4.31 1.46 5.11 3.5l2.39-.96C18.79 10.45 15.86 8 12.5 8z"/></svg>
+          Undo
+        </button>
+        <button class="action-btn outline" id="clearBtn">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          Clear
+        </button>
+        <button class="action-btn primary" id="svgBtn">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 15.01l1.41-1.42L11 15.17l3.59-3.58L16 13l-5 5-3-2.99z"/></svg>
+          SVG
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══ SETTINGS TAB ═══ -->
+    <div class="tab-panel" id="settingsPanel">
+      <div class="settings-scroll">
+        <!-- Extrusion Heights -->
+        <div class="section-header">Extrusion Heights</div>
+        <div class="card" id="drawingHeightsCard">
+          <div class="card-row">
+            <div class="color-dot" style="background:#000000;"></div>
+            <span class="row-label">Black</span>
+            <input type="range" id="height_000000" min="0.5" max="30" step="0.5" value="5">
+            <span class="row-val" id="valHeight_000000">5.0mm</span>
+          </div>
+          <div class="card-row">
+            <div class="color-dot" style="background:#E94560;"></div>
+            <span class="row-label">Red</span>
+            <input type="range" id="height_E94560" min="0.5" max="30" step="0.5" value="5">
+            <span class="row-val" id="valHeight_E94560">5.0mm</span>
+          </div>
+          <div class="card-row">
+            <div class="color-dot" style="background:#3498DB;"></div>
+            <span class="row-label">Blue</span>
+            <input type="range" id="height_3498DB" min="0.5" max="30" step="0.5" value="5">
+            <span class="row-val" id="valHeight_3498DB">5.0mm</span>
+          </div>
+          <div class="card-row">
+            <div class="color-dot" style="background:#2ECC71;"></div>
+            <span class="row-label">Green</span>
+            <input type="range" id="height_2ECC71" min="0.5" max="30" step="0.5" value="5">
+            <span class="row-val" id="valHeight_2ECC71">5.0mm</span>
+          </div>
+          <div class="card-row">
+            <div class="color-dot" style="background:#F39C12;"></div>
+            <span class="row-label">Orange</span>
+            <input type="range" id="height_F39C12" min="0.5" max="30" step="0.5" value="5">
+            <span class="row-val" id="valHeight_F39C12">5.0mm</span>
+          </div>
+        </div>
+        <div class="card" id="uploadHeightsCard" style="display:none;"></div>
+
+        <!-- Parameters -->
+        <div class="section-header">Parameters</div>
+        <div class="card">
+          <div class="card-row">
+            <span class="row-label">Base Thickness</span>
+            <input type="range" id="baseThickness" min="0" max="10" step="0.5" value="2">
+            <span class="row-val" id="valBase">2.0mm</span>
+          </div>
+          <div class="card-row">
+            <span class="row-label">Scale</span>
+            <input type="range" id="scale" min="0.01" max="1" step="0.01" value="0.1">
+            <span class="row-val" id="valScale">0.10</span>
+          </div>
+          <div class="card-row">
+            <span class="row-label">Upsample</span>
+            <input type="range" id="upsample" min="1" max="4" step="1" value="2">
+            <span class="row-val" id="valUpsample">2</span>
+          </div>
+          <div class="card-row">
+            <span class="row-label">Blur Radius</span>
+            <input type="range" id="blurRadius" min="1" max="15" step="2" value="5">
+            <span class="row-val" id="valBlur">5</span>
+          </div>
+          <div class="card-row">
+            <span class="row-label">Min Area</span>
+            <input type="range" id="minArea" min="10" max="2000" step="10" value="200">
+            <span class="row-val" id="valArea">200</span>
+          </div>
+          <div class="card-row">
+            <span class="row-label">Base Margin</span>
+            <input type="range" id="baseMargin" min="0" max="10" step="0.5" value="2">
+            <span class="row-val" id="valMargin">2.0mm</span>
+          </div>
+        </div>
+
+        <input type="checkbox" id="invertCheck" style="display:none;">
+
+        <!-- Footer -->
+        <div class="settings-footer">
+          <div class="app-ver">Draw2Print v1.0.1</div>
+          Draw &rarr; Extrude &rarr; 3D Print<br>
+          100% on-device processing
+        </div>
+      </div>
+
+      <!-- Sticky Convert -->
+      <div class="sticky-convert">
+        <button id="convertBtn" disabled>Loading OpenCV...</button>
+        <div id="statusMsg"></div>
+      </div>
+    </div>
+
+    <!-- ═══ PREVIEW TAB ═══ -->
+    <div class="tab-panel" id="previewPanel">
+      <div class="preview-viewer">
+        <div id="preview3d">
+          <div class="preview-empty" id="previewEmpty">
+            <svg viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.37v-6.73L5 9.18v6.73zm14 0v-6.73l-6 3.37v6.73l6-3.37z"/></svg>
+            <p>Your 3D model will appear here</p>
+            <div class="hint-steps">
+              <div class="hint-step"><div class="hint-num">1</div>Draw</div>
+              <div class="hint-step"><div class="hint-num">2</div>Convert</div>
+              <div class="hint-step"><div class="hint-num">3</div>Preview</div>
+            </div>
+          </div>
+        </div>
+        <div class="preview-status-chip" id="previewChip">Ready</div>
+      </div>
+      <div class="preview-actions">
+        <button class="action-btn primary" id="downloadBtn" style="display:none;">
+          <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download STL
+        </button>
+        <button class="action-btn outline" id="editDrawingBtn">
+          <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 000-1.41l-2.34-2.34a.996.996 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          Edit Drawing
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-bar-btn active" data-tab="drawPanel">
+      <svg viewBox="0 0 24 24"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34a.996.996 0 00-1.41 0L9 12.25 11.75 15l8.96-8.96a.996.996 0 000-1.41z"/></svg>
+      <span>Draw</span>
+    </button>
+    <button class="tab-bar-btn" data-tab="settingsPanel">
+      <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      <span>Convert</span>
+    </button>
+    <button class="tab-bar-btn" data-tab="previewPanel">
+      <svg viewBox="0 0 24 24"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15zM5 15.91l6 3.37v-6.73L5 9.18v6.73zm14 0v-6.73l-6 3.37v6.73l6-3.37z"/></svg>
+      <span>Preview</span>
+    </button>
+  </div>
+</div>
+
+<!-- OpenCV.js — bundled locally for fully offline operation -->
+<script async src="vendor/opencv.js" onload="window._cvReady?.()" id="opencvScript"></script>
+
+<!-- earcut — polygon triangulation with holes (bundled locally) -->
+<script src="vendor/earcut.min.js"></script>
+
+<!-- Three.js via importmap (bundled locally) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js",
+    "three/addons/": "./vendor/addons/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { convertCanvasToSTL, NotEnclosedError, detectImageColors } from './js/converter.js';
+import { renderSVGToCanvas, MAX_SVG_SIZE } from './js/svg-importer.js';
+
+// ========== Tab Navigation ==========
+const tabBtns = document.querySelectorAll('.tab-bar-btn');
+const tabPanels = document.querySelectorAll('.tab-panel');
+const navTitle = document.getElementById('navTitle');
+
+const tabTitles = {
+  drawPanel: 'Draw2Print',
+  settingsPanel: 'Convert',
+  previewPanel: '3D Preview',
+};
+
+function switchTab(tabId) {
+  tabPanels.forEach(p => p.classList.remove('active'));
+  tabBtns.forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  document.querySelector(`.tab-bar-btn[data-tab="${tabId}"]`).classList.add('active');
+  navTitle.textContent = tabTitles[tabId] || 'Draw2Print';
+
+  // Resize 3D renderer when switching to preview
+  if (tabId === 'previewPanel' && renderer) {
+    requestAnimationFrame(() => resize3D());
+  }
+}
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// "Edit Drawing" button on preview tab
+document.getElementById('editDrawingBtn').addEventListener('click', () => {
+  switchTab('drawPanel');
+});
+
+// Hero tip dismiss
+const heroTip = document.getElementById('heroTip');
+if (localStorage.getItem('heroTipDismissed')) {
+  heroTip.style.display = 'none';
+} else {
+  document.getElementById('heroTipClose').addEventListener('click', () => {
+    heroTip.style.display = 'none';
+    localStorage.setItem('heroTipDismissed', '1');
+  });
+}
+
+// ========== Onboarding ==========
+{
+  const ob = document.getElementById('onboarding');
+  if (localStorage.getItem('onboardingDone')) {
+    ob.remove();
+  } else {
+    let currentSlide = 0;
+    const slides = ob.querySelectorAll('.onboarding-slide');
+    const dots = ob.querySelectorAll('.ob-dot');
+    const nextBtn = document.getElementById('obNext');
+    const skipBtn = document.getElementById('obSkip');
+
+    function showSlide(i) {
+      slides.forEach(s => s.classList.remove('active'));
+      dots.forEach(d => d.classList.remove('active'));
+      slides[i].classList.add('active');
+      dots[i].classList.add('active');
+      currentSlide = i;
+      if (i === slides.length - 1) {
+        nextBtn.textContent = "Let's go!";
+        nextBtn.className = 'ob-btn ob-btn-start';
+        skipBtn.style.display = 'none';
+      } else {
+        nextBtn.textContent = 'Next';
+        nextBtn.className = 'ob-btn ob-btn-next';
+        skipBtn.style.display = '';
+      }
+    }
+
+    function dismiss() {
+      ob.classList.add('hiding');
+      localStorage.setItem('onboardingDone', '1');
+      setTimeout(() => ob.remove(), 400);
+    }
+
+    nextBtn.addEventListener('click', () => {
+      if (currentSlide < slides.length - 1) {
+        showSlide(currentSlide + 1);
+      } else {
+        dismiss();
+      }
+    });
+
+    skipBtn.addEventListener('click', dismiss);
+  }
+}
+
+// ========== OpenCV.js Loading ==========
+let cvReady = false;
+function waitForOpenCV() {
+  return new Promise((resolve) => {
+    if (typeof cv !== 'undefined' && cv.Mat) {
+      cvReady = true;
+      resolve();
+      return;
+    }
+    window._cvReady = () => {
+      if (typeof cv !== 'undefined' && typeof cv.then === 'function') {
+        cv.then((readyCv) => {
+          window.cv = readyCv;
+          cvReady = true;
+          resolve();
+        });
+      } else if (typeof cv !== 'undefined') {
+        const check = () => {
+          if (cv.Mat) { cvReady = true; resolve(); }
+          else setTimeout(check, 50);
+        };
+        check();
+      }
+    };
+    if (typeof cv !== 'undefined') {
+      window._cvReady();
+    }
+  });
+}
+
+const cvPromise = waitForOpenCV();
+cvPromise.then(() => {
+  document.getElementById('convertBtn').disabled = false;
+  document.getElementById('convertBtn').textContent = 'Convert to STL';
+});
+
+// ========== Drawing Canvas ==========
+const canvas = document.getElementById('drawCanvas');
+const ctx = canvas.getContext('2d');
+
+let drawing = false;
+let tool = 'brush';
+let activeColor = '#000000';
+const undoStack = [];
+const MAX_UNDO = 20;
+
+const PALETTE = [
+  { name: 'Black',  hex: '#000000' },
+  { name: 'Red',    hex: '#E94560' },
+  { name: 'Blue',   hex: '#3498DB' },
+  { name: 'Green',  hex: '#2ECC71' },
+  { name: 'Orange', hex: '#F39C12' },
+];
+
+// Upload mode state
+let uploadMode = false;
+let detectedColors = [];    // [{hex, rgb, pixelCount}, ...]
+let uploadColorHeights = {}; // {"#2b2b2b": 5.0, ...}
+
+function renderUploadSliders() {
+  const drawCard = document.getElementById('drawingHeightsCard');
+  const uploadCard = document.getElementById('uploadHeightsCard');
+  drawCard.style.display = 'none';
+  uploadCard.style.display = '';
+  uploadCard.innerHTML = '';
+
+  detectedColors.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'card-row';
+    if (i > 0) row.style.borderTop = '1px solid var(--border)';
+
+    const dot = document.createElement('div');
+    dot.className = 'color-dot';
+    dot.style.background = c.hex;
+
+    const label = document.createElement('span');
+    label.className = 'row-label';
+    label.textContent = 'Color ' + (i + 1);
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0.5';
+    slider.max = '30';
+    slider.step = '0.5';
+    slider.value = String(uploadColorHeights[c.hex] || 5.0);
+
+    const val = document.createElement('span');
+    val.className = 'row-val';
+    val.textContent = parseFloat(slider.value).toFixed(1) + 'mm';
+
+    slider.addEventListener('input', () => {
+      uploadColorHeights[c.hex] = parseFloat(slider.value);
+      val.textContent = parseFloat(slider.value).toFixed(1) + 'mm';
+    });
+
+    row.appendChild(dot);
+    row.appendChild(label);
+    row.appendChild(slider);
+    row.appendChild(val);
+    uploadCard.appendChild(row);
+  });
+}
+
+function clearCanvas() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+clearCanvas();
+pushUndo();
+
+function pushUndo() {
+  if (undoStack.length >= MAX_UNDO) undoStack.shift();
+  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+}
+
+function popUndo() {
+  if (undoStack.length <= 1) return;
+  undoStack.pop();
+  const prev = undoStack[undoStack.length - 1];
+  ctx.putImageData(prev, 0, 0);
+}
+
+// --- Pointer helpers (mouse + touch) ---
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
+  };
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  drawing = true;
+  const pos = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+}
+
+function moveDraw(e) {
+  if (!drawing) return;
+  e.preventDefault();
+  const pos = getPos(e);
+  const size = parseInt(document.getElementById('brushSize').value, 10);
+  ctx.lineWidth = size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = tool === 'eraser' ? '#ffffff' : activeColor;
+  ctx.lineTo(pos.x, pos.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pos.x, pos.y);
+}
+
+function endDraw(e) {
+  if (!drawing) return;
+  drawing = false;
+  ctx.beginPath();
+  pushUndo();
+}
+
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', moveDraw);
+canvas.addEventListener('mouseup', endDraw);
+canvas.addEventListener('mouseleave', endDraw);
+canvas.addEventListener('touchstart', startDraw, { passive: false });
+canvas.addEventListener('touchmove', moveDraw, { passive: false });
+canvas.addEventListener('touchend', endDraw);
+canvas.addEventListener('touchcancel', endDraw);
+
+// --- Segmented Control (Brush / Eraser) ---
+const brushBtn = document.getElementById('brushBtn');
+const eraserBtn = document.getElementById('eraserBtn');
+
+brushBtn.addEventListener('click', () => {
+  tool = 'brush';
+  brushBtn.classList.add('active');
+  eraserBtn.classList.remove('active');
+  canvas.style.cursor = 'crosshair';
+});
+eraserBtn.addEventListener('click', () => {
+  tool = 'eraser';
+  eraserBtn.classList.add('active');
+  brushBtn.classList.remove('active');
+  canvas.style.cursor = 'cell';
+});
+
+// --- Color Palette ---
+const paletteItems = document.querySelectorAll('.palette-item');
+paletteItems.forEach(item => {
+  item.addEventListener('click', () => {
+    activeColor = item.dataset.color;
+    paletteItems.forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    tool = 'brush';
+    brushBtn.classList.add('active');
+    eraserBtn.classList.remove('active');
+    canvas.style.cursor = 'crosshair';
+  });
+});
+
+// --- Brush Size ---
+const brushSizeInput = document.getElementById('brushSize');
+const brushSizeVal = document.getElementById('brushSizeVal');
+brushSizeInput.addEventListener('input', () => {
+  brushSizeVal.textContent = brushSizeInput.value;
+});
+
+// --- Canvas Actions ---
+document.getElementById('clearBtn').addEventListener('click', () => {
+  clearCanvas();
+  pushUndo();
+  // Reset upload mode
+  if (uploadMode) {
+    uploadMode = false;
+    detectedColors = [];
+    uploadColorHeights = {};
+    document.getElementById('uploadHeightsCard').style.display = 'none';
+    document.getElementById('uploadHeightsCard').innerHTML = '';
+    document.getElementById('drawingHeightsCard').style.display = '';
+  }
+});
+document.getElementById('undoBtn').addEventListener('click', popUndo);
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    popUndo();
+  }
+});
+
+// --- Import SVG ---
+async function handleSVGContent(svgText) {
+  try {
+    await renderSVGToCanvas(canvas, svgText);
+    pushUndo();
+
+    if (cvReady) {
+      detectedColors = detectImageColors(canvas, 5);
+      if (detectedColors.length > 0) {
+        uploadMode = true;
+        uploadColorHeights = {};
+        for (const c of detectedColors) {
+          uploadColorHeights[c.hex] = 5.0;
+        }
+        renderUploadSliders();
+      }
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+// Check if running inside Capacitor (native iOS)
+const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+
+if (isNative) {
+  // Use native plugin — opens UIDocumentPickerViewController directly (no action sheet)
+  document.getElementById('svgBtn').addEventListener('click', async () => {
+    try {
+      const result = await window.Capacitor.Plugins.SVGPickerPlugin.pick();
+      if (result.size > MAX_SVG_SIZE) {
+        alert(`File too large (${(result.size / 1024 / 1024).toFixed(1)}MB). Please select an SVG file smaller than ${MAX_SVG_SIZE / 1024 / 1024}MB.`);
+        return;
+      }
+      handleSVGContent(result.content);
+    } catch (e) {
+      // User cancelled — do nothing
+    }
+  });
+} else {
+  // Web fallback — use hidden file input
+  const svgFileInput = document.createElement('input');
+  svgFileInput.type = 'file';
+  svgFileInput.accept = '.svg';
+  svgFileInput.style.display = 'none';
+  document.body.appendChild(svgFileInput);
+
+  document.getElementById('svgBtn').addEventListener('click', () => {
+    svgFileInput.click();
+  });
+
+  svgFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const isSVG = file.name.toLowerCase().endsWith('.svg') || file.type === 'image/svg+xml';
+    if (!isSVG) {
+      alert('Unsupported file format. Please select an SVG file (.svg).\n\nTip: You can convert images to SVG using Figma, Illustrator, or online tools.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_SVG_SIZE) {
+      alert(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please select an SVG file smaller than ${MAX_SVG_SIZE / 1024 / 1024}MB.`);
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => handleSVGContent(ev.target.result);
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+}
+
+// --- Slider value labels ---
+const sliders = [
+  ['baseThickness', 'valBase',   v => parseFloat(v).toFixed(1) + 'mm'],
+  ['scale',         'valScale',  v => parseFloat(v).toFixed(2)],
+  ['upsample',      'valUpsample', v => v],
+  ['blurRadius',    'valBlur',   v => v],
+  ['minArea',       'valArea',   v => v],
+  ['baseMargin',    'valMargin', v => parseFloat(v).toFixed(1) + 'mm'],
+];
+for (const [id, labelId, fmt] of sliders) {
+  const input = document.getElementById(id);
+  const label = document.getElementById(labelId);
+  input.addEventListener('input', () => { label.textContent = fmt(input.value); });
+}
+
+// --- Color height slider labels ---
+const colorHeightIds = ['000000', 'E94560', '3498DB', '2ECC71', 'F39C12'];
+for (const cid of colorHeightIds) {
+  const input = document.getElementById('height_' + cid);
+  const label = document.getElementById('valHeight_' + cid);
+  input.addEventListener('input', () => {
+    label.textContent = parseFloat(input.value).toFixed(1) + 'mm';
+  });
+}
+
+// ========== Convert ==========
+const convertBtn = document.getElementById('convertBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+const statusMsg = document.getElementById('statusMsg');
+const previewChip = document.getElementById('previewChip');
+const previewEmpty = document.getElementById('previewEmpty');
+
+let lastSTLBlob = null;
+
+async function saveOrShareSTL(blob) {
+  const file = new File([blob], 'sketch.stl', { type: 'application/octet-stream' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'sketch.stl' });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sketch.stl';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+convertBtn.addEventListener('click', async () => {
+  if (!cvReady) {
+    statusMsg.textContent = 'OpenCV is still loading. Please wait...';
+    statusMsg.className = 'warning';
+    return;
+  }
+
+  convertBtn.disabled = true;
+  statusMsg.textContent = 'Converting (on-device)...';
+  statusMsg.className = '';
+  downloadBtn.style.display = 'none';
+
+  let colorHeights;
+  if (uploadMode && detectedColors.length > 0) {
+    colorHeights = { ...uploadColorHeights };
+  } else {
+    colorHeights = {};
+    for (const p of PALETTE) {
+      const sliderId = 'height_' + p.hex.replace('#', '');
+      colorHeights[p.hex] = parseFloat(document.getElementById(sliderId).value);
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 50));
+
+  try {
+    const stlBuffer = convertCanvasToSTL(canvas, {
+      colorHeights,
+      baseThickness: parseFloat(document.getElementById('baseThickness').value),
+      scale: parseFloat(document.getElementById('scale').value),
+      upsample: parseInt(document.getElementById('upsample').value, 10),
+      blurRadius: parseInt(document.getElementById('blurRadius').value, 10),
+      minArea: parseFloat(document.getElementById('minArea').value),
+      baseMargin: parseFloat(document.getElementById('baseMargin').value),
+      invert: document.getElementById('invertCheck').checked,
+    });
+
+    const blob = new Blob([stlBuffer], { type: 'application/octet-stream' });
+    lastSTLBlob = blob;
+
+    downloadBtn.style.display = 'flex';
+    downloadBtn.onclick = function() { saveOrShareSTL(blob); };
+
+    statusMsg.textContent = 'Done! Switch to Preview tab to view.';
+    statusMsg.className = '';
+
+    // Show 3D Preview
+    show3DPreview(blob);
+
+    // Update preview tab state
+    previewChip.classList.add('visible');
+    previewEmpty.style.display = 'none';
+
+  } catch (err) {
+    if (err instanceof NotEnclosedError || err.name === 'NotEnclosedError') {
+      statusMsg.textContent = err.message;
+      statusMsg.className = 'warning';
+    } else {
+      statusMsg.textContent = err.message;
+      statusMsg.className = 'error';
+    }
+  } finally {
+    convertBtn.disabled = false;
+  }
+});
+
+// ========== 3D Preview ==========
+let scene, camera, renderer, controls, currentMesh;
+
+function resize3D() {
+  const container = document.getElementById('preview3d');
+  if (!renderer || !container) return;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  if (w === 0 || h === 0) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+function init3D() {
+  const container = document.getElementById('preview3d');
+
+  if (renderer) {
+    if (currentMesh) { scene.remove(currentMesh); currentMesh = null; }
+    return;
+  }
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2D1B69);
+
+  camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+  camera.position.set(0, -50, 80);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(container.clientWidth, container.clientHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  container.appendChild(renderer.domElement);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.1;
+
+  const ambient = new THREE.AmbientLight(0x404040, 1.5);
+  scene.add(ambient);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(50, -50, 100);
+  scene.add(dirLight);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
+  dirLight2.position.set(-50, 50, 50);
+  scene.add(dirLight2);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  window.addEventListener('resize', resize3D);
+}
+
+function show3DPreview(blob) {
+  init3D();
+
+  const loader = new STLLoader();
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const geometry = loader.parse(e.target.result);
+    geometry.computeVertexNormals();
+
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x4ECDC4,
+      specular: 0x666688,
+      shininess: 60,
+      flatShading: false,
+    });
+
+    if (currentMesh) scene.remove(currentMesh);
+    currentMesh = new THREE.Mesh(geometry, material);
+    scene.add(currentMesh);
+
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    currentMesh.position.sub(center);
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = camera.fov * (Math.PI / 180);
+    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.5;
+
+    camera.position.set(0, -dist * 0.5, dist);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+  };
+  reader.readAsArrayBuffer(blob);
+}
+</script>
+</body>
+</html>
