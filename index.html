@@ -1031,22 +1031,15 @@ const statusMsg = document.getElementById('statusMsg');
 const previewChip = document.getElementById('previewChip');
 const previewEmpty = document.getElementById('previewEmpty');
 
-async function saveOrShareSTL(blob) {
-  const file = new File([blob], 'sketch.stl', { type: 'application/octet-stream' });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: 'sketch.stl' });
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
+function saveOrShareSTL(blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = 'sketch.stl';
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 convertBtn.addEventListener('click', async () => {
